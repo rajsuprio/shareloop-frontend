@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
+import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 export default function Browse() {
   const [items, setItems] = useState([]);
@@ -9,38 +11,136 @@ export default function Browse() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [banner, setBanner] = useState({ type: "", message: "" });
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedPostedItems =
-      JSON.parse(localStorage.getItem("shareloopItems")) || [];
-    const savedFavorites =
-      JSON.parse(localStorage.getItem("shareloopSavedItems")) || [];
+  const { token, user } = useAuth();
 
-    setItems(savedPostedItems);
-    setSavedItems(savedFavorites);
-  }, []);
-
-  function handleDelete(id) {
-    const updatedItems = items.filter((item) => item.id !== id);
-    setItems(updatedItems);
-    localStorage.setItem("shareloopItems", JSON.stringify(updatedItems));
-
-    const updatedSaved = savedItems.filter((item) => item.id !== id);
-    setSavedItems(updatedSaved);
-    localStorage.setItem("shareloopSavedItems", JSON.stringify(updatedSaved));
+  async function fetchItems() {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE_URL}/api/items`);
+      const data = await res.json();
+      setItems(data);
+    } catch {
+      setBanner({
+        type: "error",
+        message: "Failed to load items from backend.",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleSave(item) {
-    const alreadySaved = savedItems.some((saved) => saved.id === item.id);
+  async function fetchSavedItems() {
+    if (!token) {
+      setSavedItems([]);
+      return;
+    }
 
-    if (alreadySaved) {
-      const updatedSaved = savedItems.filter((saved) => saved.id !== item.id);
-      setSavedItems(updatedSaved);
-      localStorage.setItem("shareloopSavedItems", JSON.stringify(updatedSaved));
-    } else {
-      const updatedSaved = [item, ...savedItems];
-      setSavedItems(updatedSaved);
-      localStorage.setItem("shareloopSavedItems", JSON.stringify(updatedSaved));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/saved-items`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) setSavedItems(data);
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchItems();
+    fetchSavedItems();
+  }, [token]);
+
+  async function handleDelete(id) {
+    if (!token) {
+      setBanner({
+        type: "error",
+        message: "You must be logged in to delete an item.",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/items/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to delete item");
+
+      setItems((prev) => prev.filter((item) => item._id !== id));
+
+      await fetch(`${API_BASE_URL}/api/saved-items/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => {});
+
+      setSavedItems((prev) => prev.filter((item) => item.itemId?._id !== id));
+
+      setBanner({
+        type: "success",
+        message: "Item deleted successfully.",
+      });
+    } catch (error) {
+      setBanner({
+        type: "error",
+        message: error.message || "Delete failed.",
+      });
+    }
+  }
+
+  async function handleSave(item) {
+    if (!token) {
+      setBanner({
+        type: "error",
+        message: "You must be logged in to save items.",
+      });
+      return;
+    }
+
+    const alreadySaved = savedItems.some((saved) => saved.itemId?._id === item._id);
+
+    try {
+      if (alreadySaved) {
+        const res = await fetch(`${API_BASE_URL}/api/saved-items/${item._id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to remove saved item");
+
+        setSavedItems((prev) => prev.filter((saved) => saved.itemId?._id !== item._id));
+      } else {
+        const res = await fetch(`${API_BASE_URL}/api/saved-items`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ itemId: item._id }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to save item");
+
+        fetchSavedItems();
+      }
+    } catch (error) {
+      setBanner({
+        type: "error",
+        message: error.message || "Save failed.",
+      });
     }
   }
 
@@ -73,6 +173,18 @@ export default function Browse() {
           </Link>
         }
       />
+
+      {banner.message && (
+        <div
+          className={`mt-6 rounded-2xl p-4 text-sm font-medium ${
+            banner.type === "success"
+              ? "bg-green-50 text-green-700"
+              : "bg-red-50 text-red-700"
+          }`}
+        >
+          {banner.message}
+        </div>
+      )}
 
       <div className="mt-8 rounded-3xl bg-white p-5 shadow-sm sm:p-6">
         <div className="grid gap-4 md:grid-cols-3">
@@ -111,21 +223,26 @@ export default function Browse() {
         </div>
       </div>
 
-      {filteredItems.length === 0 ? (
+      {loading ? (
+        <div className="mt-8 rounded-3xl bg-white p-8 shadow-sm">
+          <p className="text-zinc-500">Loading items...</p>
+        </div>
+      ) : filteredItems.length === 0 ? (
         <div className="mt-8 rounded-3xl bg-white p-8 shadow-sm">
           <p className="text-zinc-500">No matching items found.</p>
         </div>
       ) : (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {filteredItems.map((item) => {
-            const isSaved = savedItems.some((saved) => saved.id === item.id);
+            const isSaved = savedItems.some((saved) => saved.itemId?._id === item._id);
+            const isOwner = user && item.user && user._id === item.user._id;
 
             return (
               <div
-                key={item.id}
+                key={item._id}
                 className="overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
-                <Link to={`/item/${item.id}`} className="block">
+                <Link to={`/item/${item._id}`} className="block">
                   <img
                     src={item.image}
                     alt={item.title}
@@ -141,6 +258,11 @@ export default function Browse() {
                         <p className="mt-1 text-sm text-zinc-500">
                           📍 {item.location}
                         </p>
+                        {item.user?.name && (
+                          <p className="mt-1 text-xs text-zinc-400">
+                            Posted by {item.user.name}
+                          </p>
+                        )}
                       </div>
                       <span className="font-bold text-zinc-900">
                         {item.price}
@@ -170,12 +292,21 @@ export default function Browse() {
                     {isSaved ? "Saved" : "Save Item"}
                   </button>
 
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="w-full rounded-2xl bg-red-500 px-4 py-2 text-white transition hover:bg-red-600"
-                  >
-                    Delete Item
-                  </button>
+                  {isOwner ? (
+                    <button
+                      onClick={() => handleDelete(item._id)}
+                      className="w-full rounded-2xl bg-red-500 px-4 py-2 text-white transition hover:bg-red-600"
+                    >
+                      Delete Item
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full cursor-not-allowed rounded-2xl bg-zinc-300 px-4 py-2 text-white"
+                    >
+                      Not Yours
+                    </button>
+                  )}
                 </div>
               </div>
             );

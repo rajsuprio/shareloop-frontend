@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "../context/AuthContext";
 
 const categories = [
   { name: "Food", emoji: "🍱" },
@@ -44,6 +45,8 @@ const featuredListings = [
 ];
 
 function Navbar() {
+  const { user, logout } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-200/40 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
@@ -71,9 +74,39 @@ function Navbar() {
             </Button>
           </Link>
 
+          <Link to="/messages">
+            <Button variant="ghost" className="rounded-full">
+              Messages
+            </Button>
+          </Link>
+
+          <Link to="/profile">
+            <Button variant="ghost" className="rounded-full">
+              Profile
+            </Button>
+          </Link>
+
+
+
+          {user?.role === "admin" && (
+            <Link to="/admin">
+              <Button variant="ghost" className="rounded-full">
+                Admin
+              </Button>
+            </Link>
+          )}
+
+
+
           <Link to="/saved">
             <Button variant="ghost" className="rounded-full">
               Saved
+            </Button>
+          </Link>
+
+          <Link to="/requests">
+            <Button variant="ghost" className="rounded-full">
+              Requests
             </Button>
           </Link>
 
@@ -94,6 +127,35 @@ function Navbar() {
               Post
             </Button>
           </Link>
+
+          {user ? (
+            <>
+              <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700">
+                {user.name} · {user.role}
+              </div>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={logout}
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="outline" className="rounded-full">
+                  Login
+                </Button>
+              </Link>
+
+              <Link to="/signup">
+                <Button className="rounded-full bg-green-500 hover:bg-green-600">
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -101,6 +163,8 @@ function Navbar() {
 }
 
 function Hero() {
+  const { user } = useAuth();
+
   return (
     <section className="relative overflow-hidden px-4 py-14 sm:px-6 sm:py-20">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.16),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(249,115,22,0.14),_transparent_30%),linear-gradient(to_bottom,_#fafaf9,_#f8fafc)]" />
@@ -108,16 +172,25 @@ function Hero() {
       <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2">
         <div>
           <Badge className="mb-5 rounded-full bg-green-100 text-green-700 hover:bg-green-100">
-            Community-powered sharing
+            {user ? `Welcome back, ${user.name}` : "Community-powered sharing"}
           </Badge>
 
           <h2 className="text-4xl font-black tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl">
-            Give More. Waste Less. <span className="text-green-600">Share Better.</span>
+            {user ? (
+              <>
+                Ready to share more, <span className="text-green-600">{user.name}</span>?
+              </>
+            ) : (
+              <>
+                Give More. Waste Less. <span className="text-green-600">Share Better.</span>
+              </>
+            )}
           </h2>
 
           <p className="mt-6 max-w-2xl text-base leading-7 text-zinc-600 sm:text-lg sm:leading-8">
-            ShareLoop is a modern platform where people can donate useful items,
-            sell them affordably, or borrow what they need from nearby users.
+            {user
+              ? "Manage your items, help your community, and make the most of what you already have."
+              : "ShareLoop is a modern platform where people can donate useful items, sell them affordably, or borrow what they need from nearby users."}
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -130,15 +203,27 @@ function Hero() {
               </Button>
             </Link>
 
-            <Link to="/post">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full rounded-full px-6 py-3 text-base sm:w-auto"
-              >
-                Post Item
-              </Button>
-            </Link>
+            {user ? (
+              <Link to="/dashboard">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full rounded-full px-6 py-3 text-base sm:w-auto"
+                >
+                  Go to Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/signup">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full rounded-full px-6 py-3 text-base sm:w-auto"
+                >
+                  Create Account
+                </Button>
+              </Link>
+            )}
           </div>
 
           <div className="mt-10 grid grid-cols-2 gap-4 sm:max-w-2xl sm:grid-cols-4">
@@ -171,10 +256,16 @@ function Hero() {
 
             <div className="flex flex-col gap-4">
               <div className="rounded-[1.5rem] bg-gradient-to-br from-green-500 to-emerald-600 p-5 text-white shadow-lg">
-                <p className="text-sm text-white/80">This week’s impact</p>
-                <p className="mt-2 text-3xl font-bold">3,482 items</p>
+                <p className="text-sm text-white/80">
+                  {user ? "Your next move" : "This week’s impact"}
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {user ? "Post something useful" : "3,482 items"}
+                </p>
                 <p className="mt-1 text-sm text-white/80">
-                  shared across nearby communities
+                  {user
+                    ? "help someone nearby with one extra item"
+                    : "shared across nearby communities"}
                 </p>
               </div>
 
