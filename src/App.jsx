@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import Browse from "./pages/Browse";
 import PostItem from "./pages/PostItem";
 import ItemDetails from "./pages/ItemDetails";
+import Checkout from "./pages/Checkout";
 import SavedItems from "./pages/SavedItems";
 import MyItems from "./pages/MyItems";
 import Dashboard from "./pages/Dashboard";
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/browse" element={<Browse />} />
         <Route path="/item/:id" element={<ItemDetails />} />
+        <Route path="/checkout/:id" element={<Checkout />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />

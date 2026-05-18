@@ -310,7 +310,21 @@ export default function ItemDetails() {
       ? "Request Item"
       : item.type === "Borrow"
       ? "Request to Borrow"
-      : "Contact Seller";
+      : "Checkout Now";
+
+  async function handleCheckout() {
+    if (!token) {
+      showMessage("error", "You must be logged in to checkout this item.");
+      return;
+    }
+
+    if (isOwner) {
+      showMessage("error", "You cannot checkout your own item.");
+      return;
+    }
+
+    navigate(`/checkout/${item._id}`, { state: { item } });
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 px-4 py-10 sm:px-6 sm:py-12">
@@ -388,6 +402,14 @@ export default function ItemDetails() {
                     Cancel Request
                   </button>
                 )
+              ) : item.type === "Sell" ? (
+                <button
+                  onClick={handleCheckout}
+                  disabled={isOwner}
+                  className="w-full rounded-2xl bg-blue-500 px-5 py-3 font-medium text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {actionLabel}
+                </button>
               ) : requestStatus === "none" ? (
                 <button
                   onClick={handleSimpleRequest}
