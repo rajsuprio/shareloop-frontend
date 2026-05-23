@@ -37,6 +37,19 @@ const itemSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "approved",
+    },
+    available: {
+      type: Boolean,
+      default: true,
+    },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -45,4 +58,4 @@ const itemSchema = new mongoose.Schema(
 
 const Item = mongoose.model("Item", itemSchema);
 
-export default Item;
+export default Item; 

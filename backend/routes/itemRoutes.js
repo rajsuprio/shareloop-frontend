@@ -98,6 +98,45 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
+// PATCH mark item as unavailable (for checkout/purchase)
+router.patch("/:id/unavailable", protect, async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found",
+      });
+    }
+
+    const isOwner = String(item.user) === req.user.userId;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this item",
+      });
+    }
+
+    item.available = false;
+    await item.save();
+
+    res.json({
+      success: true,
+      message: "Item marked as unavailable",
+      item,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update item availability",
+      error: error.message,
+    });
+  }
+});
+
 // PUT update item
 router.put("/:id", protect, async (req, res) => {
   try {

@@ -1,9 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import Logo from "@/components/Logo";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config";
 
 const categories = [
   { name: "Food", emoji: "🍱" },
@@ -14,36 +17,6 @@ const categories = [
   { name: "Essentials", emoji: "📦" },
 ];
 
-const featuredListings = [
-  {
-    id: 1,
-    title: "Fresh Homemade Meals",
-    location: "Dhanmondi",
-    price: "Free",
-    type: "Donate",
-    image:
-      "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 2,
-    title: "Minimal Desk Lamp",
-    location: "Uttara",
-    price: "৳450",
-    type: "Sell",
-    image:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 3,
-    title: "Borrow DSLR Camera",
-    location: "Mohammadpur",
-    price: "Borrow",
-    type: "Borrow",
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=80",
-  },
-];
-
 function Navbar() {
   const { user, logout } = useAuth();
 
@@ -51,9 +24,7 @@ function Navbar() {
     <header className="sticky top-0 z-50 border-b border-zinc-200/40 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg">
-            ✨
-          </div>
+          <Logo />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-zinc-900">ShareLoop</h1>
             <p className="text-xs text-zinc-500">Give. Sell. Borrow.</p>
@@ -309,7 +280,7 @@ function CategoryCard({ item }) {
   );
 }
 
-function FeaturedCard({ item }) {
+function FeaturedCard({ item, onClick }) {
   const badgeClass =
     item.type === "Donate"
       ? "bg-green-100 text-green-700 hover:bg-green-100"
@@ -318,7 +289,7 @@ function FeaturedCard({ item }) {
       : "bg-sky-100 text-sky-700 hover:bg-sky-100";
 
   return (
-    <Card className="overflow-hidden rounded-[1.75rem] border-white/50 bg-white/80 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl">
+    <Card className="overflow-hidden rounded-[1.75rem] border-white/50 bg-white/80 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl cursor-pointer">
       <div className="relative overflow-hidden">
         <img
           src={item.image}
@@ -346,11 +317,12 @@ function FeaturedCard({ item }) {
         </div>
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Link to="/browse" className="w-full sm:flex-1">
-            <Button variant="outline" className="w-full rounded-full">
-              View More
-            </Button>
-          </Link>
+          <button
+            onClick={onClick}
+            className="w-full px-4 py-2 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-900 text-sm font-medium transition"
+          >
+            View Details
+          </button>
 
           <Link to="/post" className="w-full sm:flex-1">
             <Button className="w-full rounded-full bg-zinc-900 text-white hover:bg-zinc-800">
@@ -413,6 +385,33 @@ function FloatingActionButton() {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [featuredListings, setFeaturedListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFeaturedItems() {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE_URL}/api/items`);
+        const data = await res.json();
+        // Get the first 3 items as featured
+        setFeaturedListings(data.slice(0, 3));
+      } catch (error) {
+        console.error("Failed to load featured items:", error);
+        setFeaturedListings([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFeaturedItems();
+  }, []);
+
+  const handleViewDetails = (itemId) => {
+    navigate(`/item/${itemId}`);
+  };
+
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900">
       <Navbar />
@@ -454,11 +453,35 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {featuredListings.map((item) => (
-              <FeaturedCard key={item.id} item={item} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-80 rounded-[1.75rem] bg-zinc-100 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : featuredListings.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {featuredListings.map((item) => (
+                <FeaturedCard
+                  key={item._id}
+                  item={item}
+                  onClick={() => handleViewDetails(item._id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50 p-8 text-center">
+              <p className="text-zinc-500">No items available yet. Be the first to post!</p>
+              <Link to="/post">
+                <Button className="mt-4 rounded-full bg-green-500 hover:bg-green-600">
+                  Post an Item
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

@@ -115,6 +115,21 @@ export default function Checkout() {
 
       await new Promise((resolve) => setTimeout(resolve, 1200));
 
+      // Mark item as unavailable after successful payment
+      if (item._id && token) {
+        const unavailRes = await fetch(`${API_BASE_URL}/api/items/${item._id}/unavailable`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!unavailRes.ok) {
+          console.warn("Failed to mark item as unavailable");
+        }
+      }
+
       showMessage(
         "success",
         "Payment completed successfully! You can now contact the seller to arrange delivery."

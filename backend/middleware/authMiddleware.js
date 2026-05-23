@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -17,9 +18,25 @@ const protect = (req, res, next) => {
       process.env.JWT_SECRET || "supersecretkey"
     );
 
+    const user = await User.findById(decoded.userId).select("role banned");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, token failed",
+      });
+    }
+
+    if (user.banned) {
+      return res.status(403).json({
+        success: false,
+        message: "User is banned",
+      });
+    }
+
     req.user = {
       userId: decoded.userId,
-      role: decoded.role,
+      role: user.role,
     };
 
     next();

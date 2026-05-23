@@ -83,6 +83,13 @@ router.post("/", protect, async (req, res) => {
       });
     }
 
+    if (!item.available) {
+      return res.status(400).json({
+        success: false,
+        message: "This item is no longer available",
+      });
+    }
+
     const existing = await Request.findOne({
       itemId,
       requester: req.user.userId,
@@ -161,6 +168,16 @@ router.patch("/:id/status", protect, async (req, res) => {
     }
 
     request.status = status;
+    
+    // Update item availability based on request status
+    if (status === "accepted") {
+      // Mark item as unavailable when request is accepted
+      await Item.findByIdAndUpdate(request.itemId, { available: false });
+    } else if ((status === "rejected" || status === "cancelled") && request.status === "accepted") {
+      // Restore availability if request was previously accepted but now rejected/cancelled
+      await Item.findByIdAndUpdate(request.itemId, { available: true });
+    }
+    
     await request.save();
 
     res.json({
@@ -190,6 +207,11 @@ router.delete("/:itemId", protect, async (req, res) => {
         success: false,
         message: "Request not found",
       });
+    }
+
+    // If request was accepted, restore item availability
+    if (deleted.status === "accepted") {
+      await Item.findByIdAndUpdate(deleted.itemId, { available: true });
     }
 
     res.json({
